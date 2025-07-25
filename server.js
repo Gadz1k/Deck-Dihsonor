@@ -1,28 +1,21 @@
 // Plik: server.js
 
 // Import potrzebnych modułów
+const express = require('express');
 const http = require('http');
-const fs = require('fs');
 const path = require('path');
 const WebSocket = require('ws');
 
-// Tworzymy serwer HTTP, który będzie serwował naszą grę
-const server = http.createServer((req, res) => {
-    // Serwujemy plik index.html dla każdego, kto wejdzie na stronę
-    const filePath = path.join(__dirname, 'index.html');
-    fs.readFile(filePath, (err, data) => {
-        if (err) {
-            res.writeHead(500);
-            res.end('Error loading index.html');
-            return;
-        }
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end(data);
-    });
-});
-
+// Inicjalizacja aplikacji Express
+const app = express();
+// Tworzymy serwer HTTP z naszej aplikacji Express
+const server = http.createServer(app);
 // Uruchamiamy serwer WebSocket na tym samym serwerze HTTP
 const wss = new WebSocket.Server({ server });
+
+// Ta linia sprawia, że serwer udostępnia wszystkie pliki z katalogu, w którym się znajduje
+// Dzięki temu plik index.html będzie automatycznie dostępny
+app.use(express.static(path.join(__dirname)));
 
 // Przechowuje wszystkie aktywne gry
 const games = {};
@@ -44,6 +37,7 @@ const CARDS = [
     { id: 'bst3', name: 'Apel o Wsparciu', type: 'Boost', description: 'Każdy inny gracz musi oddać Ci 1 Honoru (jeśli ma).', effect: { type: 'leech_honor', value: 1 } },
 ];
 
+// Cała logika WebSocket pozostaje bez zmian
 wss.on('connection', ws => {
     const clientId = `gracz-${Math.random().toString(36).substr(2, 9)}`;
     clients[clientId] = { ws: ws };
@@ -80,8 +74,6 @@ wss.on('connection', ws => {
 });
 
 // Cała logika gry (funkcje pomocnicze) pozostaje bez zmian.
-// Poniżej wklejone dla kompletności.
-
 function broadcast(gameId) {
     const game = games[gameId];
     if (!game) return;
@@ -92,7 +84,6 @@ function broadcast(gameId) {
         }
     });
 }
-
 function shuffle(array) {
     let currentIndex = array.length, randomIndex;
     while (currentIndex !== 0) {
@@ -102,7 +93,6 @@ function shuffle(array) {
     }
     return array;
 }
-
 function handleCreateGame(clientId, gameId) {
     if (games[gameId]) {
         clients[clientId].ws.send(JSON.stringify({ type: 'error', message: 'Gra o tym ID już istnieje.' }));
@@ -125,7 +115,6 @@ function handleCreateGame(clientId, gameId) {
     console.log(`Gra ${gameId} stworzona przez ${clientId}`);
     broadcast(gameId);
 }
-
 function handleJoinGame(clientId, gameId) {
     const game = games[gameId];
     if (!game) {
@@ -146,7 +135,6 @@ function handleJoinGame(clientId, gameId) {
     console.log(`Gracz ${clientId} dołączył do gry ${gameId}`);
     broadcast(gameId);
 }
-
 function handleStartGame(gameId) {
     const game = games[gameId];
     if (game.players.length < 2) return;
@@ -157,7 +145,6 @@ function handleStartGame(gameId) {
     game.log.push(`Gra rozpoczęta! Tura gracza ${game.currentTurnPlayerId}.`);
     broadcast(gameId);
 }
-
 function handleDraftCard(clientId, gameId, cardId) {
     const game = games[gameId];
     const player = game.players.find(p => p.id === clientId);
@@ -169,7 +156,6 @@ function handleDraftCard(clientId, gameId, cardId) {
     game.log.push(`${clientId} dobrał kartę.`);
     broadcast(gameId);
 }
-
 function handlePlayCard(clientId, gameId, cardId, targetId) {
     const game = games[gameId];
     const player = game.players.find(p => p.id === clientId);
@@ -186,7 +172,6 @@ function handlePlayCard(clientId, gameId, cardId, targetId) {
         broadcast(gameId);
     }
 }
-
 function applyCardEffect(game, card, casterId, targetId) {
     const caster = game.players.find(p => p.id === casterId);
     const target = game.players.find(p => p.id === targetId);
@@ -199,7 +184,6 @@ function applyCardEffect(game, card, casterId, targetId) {
         case 'leech_honor': let honorGained = 0; game.players.forEach(p => { if (p.id !== casterId && !p.isEliminated && p.honor > 0) { p.honor--; honorGained++; } }); caster.honor += honorGained; game.log.push(`${caster.id} kradnie ${honorGained} Honoru od innych graczy.`); break;
     }
 }
-
 function endTurn(gameId) {
     const game = games[gameId];
     game.players.forEach(p => { if ((p.honor <= 0 || p.scandals >= 5) && !p.isEliminated) { p.isEliminated = true; game.log.push(`Gracz ${p.id} odpada z gry!`); } });

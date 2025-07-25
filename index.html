@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deck & Dishonor - Prototyp (Render)</title>
+    <title>Deck & Dishonor - Prototyp</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -26,13 +26,16 @@
         <!-- Sekcja logowania -->
         <div id="login-section" class="text-center bg-gray-800 p-8 rounded-xl shadow-2xl max-w-md mx-auto">
             <h1 class="text-4xl font-bold mb-2 text-yellow-400">Deck & Dishonor</h1>
-            <p class="text-gray-400 mb-6">Wprowadź ID gry, aby dołączyć, lub utwórz nową.</p>
-            <div class="flex flex-col sm:flex-row gap-2">
-                <input type="text" id="game-id-input" placeholder="Wpisz ID Gry" class="flex-grow bg-gray-700 text-white placeholder-gray-400 border border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                <button id="create-game-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">Utwórz Grę</button>
-                <button id="join-game-btn" class="bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-3 px-6 rounded-lg transition duration-300">Dołącz</button>
+            <p class="text-gray-400 mb-6">Wprowadź swój nick i dołącz do gry lub utwórz nową.</p>
+            <div class="space-y-4">
+                 <input type="text" id="nickname-input" placeholder="Wpisz swój nick" maxlength="15" class="w-full bg-gray-700 text-white placeholder-gray-400 border border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                 <input type="text" id="game-id-input" placeholder="Wpisz ID Gry" class="w-full bg-gray-700 text-white placeholder-gray-400 border border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                <div class="flex flex-col sm:flex-row gap-2">
+                    <button id="create-game-btn" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">Utwórz Grę</button>
+                    <button id="join-game-btn" class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-3 px-6 rounded-lg transition duration-300">Dołącz</button>
+                </div>
             </div>
-            <p class="text-xs text-gray-500 mt-4">Twoje ID: <span id="user-id-display" class="font-mono">Łączenie...</span></p>
+            <p class="text-xs text-gray-500 mt-4">Twoje ID połączenia: <span id="user-id-display" class="font-mono">Łączenie...</span></p>
         </div>
 
         <!-- Główny interfejs gry -->
@@ -83,6 +86,7 @@
         
         const loginSection = document.getElementById('login-section');
         const gameSection = document.getElementById('game-section');
+        const nicknameInput = document.getElementById('nickname-input');
         const createGameBtn = document.getElementById('create-game-btn');
         const joinGameBtn = document.getElementById('join-game-btn');
         const gameIdInput = document.getElementById('game-id-input');
@@ -149,7 +153,7 @@
             gameIdDisplay.textContent = gameData.gameId;
             roundCounter.textContent = `${gameData.round}/10`;
             const currentPlayer = gameData.players.find(p => p.id === gameData.currentTurnPlayerId);
-            turnInfo.textContent = currentPlayer ? `Tura gracza: ${currentPlayer.id === clientId ? 'Twoja' : currentPlayer.id}` : "Oczekiwanie na start...";
+            turnInfo.textContent = currentPlayer ? `Tura gracza: ${currentPlayer.nickname === me.nickname ? 'Twoja' : currentPlayer.nickname}` : "Oczekiwanie na start...";
 
             gameLog.innerHTML = gameData.log.map(entry => `<div>${entry}</div>`).join('');
             gameLog.scrollTop = gameLog.scrollHeight;
@@ -159,7 +163,7 @@
                 const playerDiv = document.createElement('div');
                 playerDiv.className = `bg-gray-800 p-4 rounded-lg border-2 border-gray-700 transition-all duration-300 ${player.id === gameData.currentTurnPlayerId ? 'player-turn' : ''} ${player.isEliminated ? 'opacity-50' : ''}`;
                 playerDiv.innerHTML = `
-                    <h4 class="font-bold text-lg truncate ${player.id === clientId ? 'text-yellow-400' : ''}">${player.id} ${player.isHost ? '(Host)' : ''} ${player.id === clientId ? '(Ty)' : ''}</h4>
+                    <h4 class="font-bold text-lg truncate ${player.id === clientId ? 'text-yellow-400' : ''}">${player.nickname} ${player.isHost ? '(Host)' : ''} ${player.id === clientId ? '(Ty)' : ''}</h4>
                     <p>Honor: <span class="font-bold text-2xl text-green-400">${player.honor}</span></p>
                     <p>Skandale: <span class="font-bold text-2xl text-red-400">${player.scandals}</span></p>
                     <p>Karty: <span class="font-bold">${player.hand.length}</span></p>
@@ -225,7 +229,7 @@
                 const targets = gameData.players.filter(p => p.id !== clientId && !p.isEliminated);
                 if (targets.length === 0) { showModal("Brak celu", "Nie ma dostępnych graczy, by ich obrać za cel."); return; }
                 const options = targets.map(target => ({
-                    label: target.id,
+                    label: target.nickname,
                     callback: () => sendMessage('playCard', { cardId: cardId, targetId: target.id })
                 }));
                 showModal("Wybierz cel", `Kogo chcesz obrać za cel dla "${card.name}"?`, options);
@@ -234,16 +238,22 @@
             }
         }
 
-        createGameBtn.addEventListener('click', () => {
+        function handleGameAction(actionType) {
+            const nickname = nicknameInput.value.trim();
             gameId = gameIdInput.value.trim();
-            if (gameId) { sendMessage('createGame'); } else { alert('Wpisz ID gry.'); }
-        });
+            if (!nickname) {
+                alert('Wpisz swój nick!');
+                return;
+            }
+            if (!gameId) {
+                alert('Wpisz ID gry!');
+                return;
+            }
+            sendMessage(actionType, { nickname: nickname });
+        }
 
-        joinGameBtn.addEventListener('click', () => {
-            gameId = gameIdInput.value.trim();
-            if (gameId) { sendMessage('joinGame'); } else { alert('Wpisz ID gry.'); }
-        });
-        
+        createGameBtn.addEventListener('click', () => handleGameAction('createGame'));
+        joinGameBtn.addEventListener('click', () => handleGameAction('joinGame'));
         startGameBtn.addEventListener('click', () => sendMessage('startGame'));
     </script>
 </body>

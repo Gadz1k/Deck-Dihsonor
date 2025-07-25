@@ -3,32 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deck & Dishonor - Prototyp (WebSocket)</title>
+    <title>Deck & Dishonor - Prototyp (Render)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            overflow-y: scroll;
-        }
-        .card {
-            transition: all 0.2s ease-in-out;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-        }
-        .card:hover {
-            transform: translateY(-5px) scale(1.03);
-            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-        }
-        .player-turn {
-            box-shadow: 0 0 15px 5px rgba(250, 204, 21, 0.7); /* Żółta poświata */
-            border-color: #FBBF24;
-        }
-        #game-log {
-            height: 150px;
-            font-size: 0.875rem;
-        }
+        body { font-family: 'Inter', sans-serif; overflow-y: scroll; }
+        .card { transition: all 0.2s ease-in-out; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); }
+        .card:hover { transform: translateY(-5px) scale(1.03); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); }
+        .player-turn { box-shadow: 0 0 15px 5px rgba(250, 204, 21, 0.7); border-color: #FBBF24; }
+        #game-log { height: 150px; font-size: 0.875rem; }
         #game-log::-webkit-scrollbar { width: 8px; }
         #game-log::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
         #game-log::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
@@ -38,7 +23,7 @@
 <body class="bg-gray-900 text-white flex items-center justify-center min-h-screen p-4">
 
     <div id="app-container" class="w-full max-w-7xl mx-auto">
-
+        <!-- Sekcja logowania -->
         <div id="login-section" class="text-center bg-gray-800 p-8 rounded-xl shadow-2xl max-w-md mx-auto">
             <h1 class="text-4xl font-bold mb-2 text-yellow-400">Deck & Dishonor</h1>
             <p class="text-gray-400 mb-6">Wprowadź ID gry, aby dołączyć, lub utwórz nową.</p>
@@ -50,6 +35,7 @@
             <p class="text-xs text-gray-500 mt-4">Twoje ID: <span id="user-id-display" class="font-mono">Łączenie...</span></p>
         </div>
 
+        <!-- Główny interfejs gry -->
         <div id="game-section" class="hidden">
             <div class="bg-gray-800 p-4 rounded-xl shadow-lg mb-4 flex flex-col sm:flex-row justify-between items-center gap-4">
                 <div>
@@ -62,9 +48,7 @@
                 </div>
                 <button id="start-game-btn" class="hidden bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg">Rozpocznij Grę</button>
             </div>
-
             <div id="players-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4"></div>
-            
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
                 <div class="lg:col-span-2 bg-gray-800 p-4 rounded-xl shadow-lg">
                     <h3 class="font-bold text-lg mb-2 border-b border-gray-700 pb-2">Log Gry</h3>
@@ -75,13 +59,13 @@
                      <div id="draft-cards" class="flex flex-wrap justify-center gap-2"></div>
                 </div>
             </div>
-
             <div class="fixed bottom-0 left-0 right-0 bg-gray-900/80 backdrop-blur-sm p-4 border-t-2 border-yellow-500">
                 <h2 class="text-center text-xl font-bold mb-3">Twoja Ręka</h2>
                 <div id="player-hand" class="flex justify-center items-end gap-2 h-48"></div>
             </div>
         </div>
         
+        <!-- Modal -->
         <div id="modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
             <div id="modal-content" class="bg-gray-800 rounded-xl shadow-2xl p-8 max-w-lg w-full text-center">
                 <h3 id="modal-title" class="text-2xl font-bold mb-4"></h3>
@@ -93,13 +77,10 @@
     </div>
 
     <script>
-        // --- ZMIENNE GLOBALNE I KONFIGURACJA ---
+        // --- Zmienne globalne i elementy DOM ---
         let clientId;
         let gameId;
         
-        // WAŻNE: ZMIEŃ 'localhost' NA ADRES IP HOSTA, ABY GRAĆ PRZEZ SIEĆ LOKALNĄ
-        const ws = new WebSocket('ws://localhost:8080');
-
         const loginSection = document.getElementById('login-section');
         const gameSection = document.getElementById('game-section');
         const createGameBtn = document.getElementById('create-game-btn');
@@ -122,7 +103,7 @@
         const modalOptions = document.getElementById('modal-options');
         const modalCloseBtn = document.getElementById('modal-close-btn');
 
-        // --- DEFINICJE KART (potrzebne do renderowania) ---
+        // --- Definicje kart (do renderowania) ---
         const CARDS = [
             { id: 'atk1', name: 'Soczysty Mem', type: 'Atak', description: 'Cel traci 3 Honoru.', needsTarget: true },
             { id: 'atk2', name: 'Teoria Spiskowa', type: 'Atak', description: 'Cel traci 2 Honoru i dostaje 1 kartę Skandalu.', needsTarget: true },
@@ -137,42 +118,31 @@
             { id: 'bst3', name: 'Apel o Wsparciu', type: 'Boost', description: 'Każdy inny gracz musi oddać Ci 1 Honoru (jeśli ma).', needsTarget: false },
         ];
         
-        // --- OBSŁUGA WEBSOCKET ---
-        ws.onopen = () => {
-            console.log('Połączono z serwerem WebSocket.');
-        };
+        // --- Połączenie WebSocket (działa automatycznie na Render) ---
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${wsProtocol}//${window.location.host}`);
+
+        ws.onopen = () => { console.log('Połączono z serwerem WebSocket.'); };
+        ws.onerror = error => { console.error('Błąd WebSocket:', error); alert('Utracono połączenie z serwerem.'); };
 
         ws.onmessage = event => {
             const data = JSON.parse(event.data);
             switch (data.type) {
-                case 'welcome':
-                    clientId = data.clientId;
-                    userIdDisplay.textContent = clientId;
-                    break;
-                case 'update':
-                    renderGame(data.gameData);
-                    break;
-                case 'error':
-                    alert('Błąd serwera: ' + data.message);
-                    break;
+                case 'welcome': clientId = data.clientId; userIdDisplay.textContent = clientId; break;
+                case 'update': renderGame(data.gameData); break;
+                case 'error': alert('Błąd serwera: ' + data.message); break;
             }
-        };
-
-        ws.onerror = error => {
-            console.error('Błąd WebSocket:', error);
-            alert('Utracono połączenie z serwerem. Odśwież stronę, aby spróbować ponownie.');
         };
 
         function sendMessage(type, payload = {}) {
             ws.send(JSON.stringify({ type, gameId, payload }));
         }
         
-        // --- RENDEROWANIE INTERFEJSU ---
+        // --- Renderowanie interfejsu ---
         function renderGame(gameData) {
             gameId = gameData.gameId;
             loginSection.classList.add('hidden');
             gameSection.classList.remove('hidden');
-            
             const me = gameData.players.find(p => p.id === clientId);
             if (!me) return;
 
@@ -199,17 +169,13 @@
             });
 
             playerHand.innerHTML = '';
-            me.hand.forEach(cardData => {
-                playerHand.appendChild(createCardElement(cardData, 'hand', gameData));
-            });
+            me.hand.forEach(cardData => { playerHand.appendChild(createCardElement(cardData, 'hand', gameData)); });
             
             draftArea.classList.add('hidden');
             if (gameData.gameState === 'DRAFTING' && gameData.currentTurnPlayerId === clientId) {
                 draftArea.classList.remove('hidden');
                 draftCardsContainer.innerHTML = '';
-                gameData.draftOptions.forEach(cardData => {
-                    draftCardsContainer.appendChild(createCardElement(cardData, 'draft'));
-                });
+                gameData.draftOptions.forEach(cardData => { draftCardsContainer.appendChild(createCardElement(cardData, 'draft')); });
             }
 
             startGameBtn.classList.add('hidden');
@@ -217,38 +183,22 @@
                 startGameBtn.classList.remove('hidden');
             }
 
-            if (gameData.gameState === 'GAME_OVER') {
-                 showModal("Koniec Gry!", gameData.log[gameData.log.length - 1]);
-            }
+            if (gameData.gameState === 'GAME_OVER') { showModal("Koniec Gry!", gameData.log[gameData.log.length - 1]); }
         }
         
         function createCardElement(cardData, context, gameData) {
             const card = CARDS.find(c => c.id === cardData.id);
             if (!card) return document.createElement('div');
-            
-            const cardDiv = document.createElement('div');
             let bgColor = 'bg-gray-700';
             if (card.type === 'Atak') bgColor = 'bg-red-800';
             if (card.type === 'Obrona') bgColor = 'bg-blue-800';
             if (card.type === 'Sabotaż') bgColor = 'bg-purple-800';
             if (card.type === 'Boost') bgColor = 'bg-green-800';
-
+            const cardDiv = document.createElement('div');
             cardDiv.className = `card w-40 h-auto p-3 rounded-lg flex flex-col justify-between cursor-pointer border-2 border-gray-600 hover:border-yellow-400 ${bgColor}`;
-            cardDiv.innerHTML = `
-                <div>
-                    <h5 class="font-bold text-sm">${card.name}</h5>
-                    <p class="text-xs text-yellow-300 font-semibold">${card.type}</p>
-                </div>
-                <p class="text-xs mt-2">${card.description}</p>
-            `;
-            
-            if (context === 'draft') {
-                cardDiv.onclick = () => sendMessage('draftCard', { cardId: card.id });
-            }
-            if (context === 'hand' && gameData.gameState === 'ACTION' && gameData.currentTurnPlayerId === clientId) {
-                cardDiv.onclick = () => handlePlayCard(card.id, gameData);
-            }
-            
+            cardDiv.innerHTML = `<div><h5 class="font-bold text-sm">${card.name}</h5><p class="text-xs text-yellow-300 font-semibold">${card.type}</p></div><p class="text-xs mt-2">${card.description}</p>`;
+            if (context === 'draft') { cardDiv.onclick = () => sendMessage('draftCard', { cardId: card.id }); }
+            if (context === 'hand' && gameData.gameState === 'ACTION' && gameData.currentTurnPlayerId === clientId) { cardDiv.onclick = () => handlePlayCard(card.id, gameData); }
             return cardDiv;
         }
 
@@ -256,32 +206,24 @@
             modalTitle.textContent = title;
             modalMessage.textContent = message;
             modalOptions.innerHTML = '';
-            
             options.forEach(opt => {
                 const btn = document.createElement('button');
                 btn.className = 'bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-2 px-4 rounded-lg';
                 btn.textContent = opt.label;
-                btn.onclick = () => {
-                    opt.callback();
-                    modal.classList.add('hidden');
-                };
+                btn.onclick = () => { opt.callback(); modal.classList.add('hidden'); };
                 modalOptions.appendChild(btn);
             });
-            
             modal.classList.remove('hidden');
         }
         
         modalCloseBtn.onclick = () => modal.classList.add('hidden');
 
-        // --- AKCJE GRACZA (wysyłają wiadomości do serwera) ---
+        // --- Akcje gracza ---
         function handlePlayCard(cardId, gameData) {
             const card = CARDS.find(c => c.id === cardId);
             if (card.needsTarget) {
                 const targets = gameData.players.filter(p => p.id !== clientId && !p.isEliminated);
-                if (targets.length === 0) {
-                    showModal("Brak celu", "Nie ma dostępnych graczy, by ich obrać za cel.");
-                    return;
-                }
+                if (targets.length === 0) { showModal("Brak celu", "Nie ma dostępnych graczy, by ich obrać za cel."); return; }
                 const options = targets.map(target => ({
                     label: target.id,
                     callback: () => sendMessage('playCard', { cardId: cardId, targetId: target.id })
@@ -294,24 +236,15 @@
 
         createGameBtn.addEventListener('click', () => {
             gameId = gameIdInput.value.trim();
-            if (gameId) {
-                sendMessage('createGame');
-            } else {
-                alert('Wpisz ID gry.');
-            }
+            if (gameId) { sendMessage('createGame'); } else { alert('Wpisz ID gry.'); }
         });
 
         joinGameBtn.addEventListener('click', () => {
             gameId = gameIdInput.value.trim();
-            if (gameId) {
-                sendMessage('joinGame');
-            } else {
-                alert('Wpisz ID gry.');
-            }
+            if (gameId) { sendMessage('joinGame'); } else { alert('Wpisz ID gry.'); }
         });
         
         startGameBtn.addEventListener('click', () => sendMessage('startGame'));
-
     </script>
 </body>
 </html>
